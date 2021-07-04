@@ -15,7 +15,14 @@ const scrape = async (url) => {
         const text = await code.evaluate(el => el.innerText);
         const functions = getFunction(text);
         for (const fn in functions) {
-            console.log('FUNCTION: ', fn, ' PARAMS: ', functions[fn].params, 'BODY: ', functions[fn].body);
+            console.log('Name: ' + fn);
+            console.log('Type: ' + functions[fn].type);
+            console.log('Params: ', functions[fn].params);
+            if (functions[fn].async) console.log('Async');
+            if (functions[fn].generator) console.log('Generator');
+            if (functions[fn].expression) console.log('Expression');
+            console.log('Body: ', functions[fn].body);
+            console.log('\n\n');
         }
     }
 
@@ -24,47 +31,88 @@ const scrape = async (url) => {
 
 const getFunction = text => {
     /*text = `
-    function x(a) {
-        console.log(a+123);
-        const y = () => {
-            console.log(456);
-         }
-         let z = function() {
-            console.log(89);
-         }
+async function asdf() {
+    return await abc();
+}
 
-         return 99;
-    `;*/
+function x(b, a = 5, c = 19) {
+     return 99*a  ;
+}
 
+var f = x => {
+    return x*x;
+}
+
+const g = (a, x = 3) => {
+    return 2*x + 1000*a;
+}
+
+let h = function(a, b=3) {
+    return a+b;
+}
+
+
+class Thing {
+    constructor(abc = 123) {
+        this.xyz = abc;
+    }
+
+    talk() {
+        console.log(this.xyz);
+     }
+}
+
+const collection = {
+  items: [],
+  add(...items) {
+    this.items.push(...items);
+  },
+  get(index) {
+    return this.items[index];
+  }
+};
+
+const fn = x => 2*x;
+`;*/
     let functions = {};
     let parsed;
     try {
         parsed = acorn.parse(text, { ecmaVersion: 2020 });
     } catch (e) {
-        return {}; //Syntax error in the code, don't attempt to find functions
+        try {
+            parsed = acorn.parse(text, { ecmaVersion: 2020, sourceType: 'module' });
+        } catch (e2) {
+            console.log('Error parsing', e2);
+            return {}; //Syntax error in the code, don't attempt to find functions
+        }
     }
+    debugger;
     //Help from https://stackoverflow.com/questions/55137051/how-to-get-all-the-function-and-their-arguments-from-a-js-file-javascript
+    function addFunction(name, params, body, async, generator, expression, type) {
+        let stringParams = params.map(p => text.slice(p.start, p.end));
+        let stringBody = text.slice(body.start, body.end);
+        //if (body[0] !== '{') body = '{\n' + body; //If it is an expression, it wont have {} in the body
+        //if (body[body.length-1] !== '}') body += '\n}';
+        functions[name] = {
+            params: stringParams,
+            body: stringBody,
+            async, expression, generator, type
+        }
+    }
+
     acornWalk.simple(parsed, {
         FunctionDeclaration(node) {
-            const name = node.id.name;
-            const params = node.params.map(p => p.name);
-            const body = text.slice(node.body.start, node.body.end);
-            functions[name] = {
-                params, body
-            }
+            addFunction(node.id.name, node.params, node.body, node.async, node.generator, node.expression, 'FunctionDeclaration');
         },
         VariableDeclarator(node) {
             if (node.init.type == 'ArrowFunctionExpression' || node.init.type == 'FunctionExpression') {
-                const name = node.id.name;
-                const params = node.init.params.map(p => p.name);
-                const body = text.slice(node.init.body.start, node.init.body.end);
-                functions[name] = {
-                    params, body
-                }
+                addFunction(node.id.name, node.init.params, node.init.body, node.init.async, node.init.generator, node.init.expression, node.init.type);
             }
+        },
+        MethodDefinition(node) {
+            addFunction(node.key.name, node.value.params, node.value.body, node.value.async, node.value.generator, node.value.expression, 'MethodDefinition');
         }
     });
-    //TODO async function, generator functions, expression?
     
     return functions;
 }
