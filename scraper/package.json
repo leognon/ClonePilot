@@ -1,0 +1,17 @@
+{
+  "name": "scraper",
+  "version": "1.0.0",
+  "description": "Scrape StackOverflow for javascript functions",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "Goel",
+  "license": "ISC",
+  "dependencies": {
+    "acorn": "^8.4.1",
+    "acorn-walk": "^8.1.1",
+    "dotenv": "^10.0.0",
+    "puppeteer": "^10.1.0"
+  }
+}
