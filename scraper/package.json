@@ -11,7 +11,8 @@
   "dependencies": {
     "acorn": "^8.4.1",
     "acorn-walk": "^8.1.1",
+    "csv-parser": "^3.0.0",
     "dotenv": "^10.0.0",
-    "puppeteer": "^10.1.0"
+    "node-html-parser": "^3.3.6"
   }
 }

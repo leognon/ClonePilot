@@ -1,79 +1,33 @@
-const puppeteer = require('puppeteer');
+const csv = require('csv-parser');
+const parser = require('node-html-parser');
+const fs = require('fs');
 const acorn = require('acorn');
 const acornWalk = require('acorn-walk');
 
-const scrape = async (url) => {
-    const browser = await puppeteer.launch({ headless: false });
-    const page = await browser.newPage();
+const gotRow = row => {
+    const body = row.Body;
+    console.log(`--------------------PARSING ROW ${row.Id}---------------------`);
+    const fns = scrape(body);
+    console.log(fns);
+    console.log('--------------------DONE ROW---------------------');
+}
 
-    await page.goto(url, {
-        waitUntil: 'networkidle0',
-    });
-
-    let codes = await page.$$('.lang-js');
+const scrape = bodyText => {
+    const root = parser.parse(bodyText);
+    let codes = root.querySelectorAll('.lang-js');
+    const fns = {};
     for (const code of codes) {
-        const text = await code.evaluate(el => el.innerText);
-        const functions = getFunction(text);
-        for (const fn in functions) {
-            console.log('Name: ' + fn);
-            console.log('Type: ' + functions[fn].type);
-            console.log('Params: ', functions[fn].params);
-            if (functions[fn].async) console.log('Async');
-            if (functions[fn].generator) console.log('Generator');
-            if (functions[fn].expression) console.log('Expression');
-            console.log('Body: ', functions[fn].body);
-            console.log('\n\n');
+        //Because the <code> is stored in a <pre> it is not parsed the first time. It must be parsed again to get the actual inner text
+        const text = parser.parse(code.innerText).text; //The .text gets the unescaped version of the html
+        const gotFunctions = getFunction(text);
+        for (const fn in gotFunctions) {
+            fns[fn] = gotFunctions[fn];
         }
     }
-
-    await browser.close();
+    return fns;
 }
 
 const getFunction = text => {
-    /*text = `
-async function asdf() {
-    return await abc();
-}
-
-function x(b, a = 5, c = 19) {
-     return 99*a  ;
-}
-
-var f = x => {
-    return x*x;
-}
-
-const g = (a, x = 3) => {
-    return 2*x + 1000*a;
-}
-
-let h = function(a, b=3) {
-    return a+b;
-}
-
-
-class Thing {
-    constructor(abc = 123) {
-        this.xyz = abc;
-    }
-
-    talk() {
-        console.log(this.xyz);
-     }
-}
-
-const collection = {
-  items: [],
-  add(...items) {
-    this.items.push(...items);
-  },
-  get(index) {
-    return this.items[index];
-  }
-};
-
-const fn = x => 2*x;
-`;*/
     let functions = {};
     let parsed;
     try {
@@ -82,11 +36,11 @@ const fn = x => 2*x;
         try {
             parsed = acorn.parse(text, { ecmaVersion: 2020, sourceType: 'module' });
         } catch (e2) {
-            console.log('Error parsing', e2);
+            //console.log('Error parsing', e2);
             return {}; //Syntax error in the code, don't attempt to find functions
         }
     }
-    debugger;
+
     //Help from https://stackoverflow.com/questions/55137051/how-to-get-all-the-function-and-their-arguments-from-a-js-file-javascript
     function addFunction(name, params, body, async, generator, expression, type) {
         let stringParams = params.map(p => text.slice(p.start, p.end));
@@ -117,6 +71,4 @@ const fn = x => 2*x;
     return functions;
 }
 
-scrape('https://stackoverflow.com/questions/55137051/how-to-get-all-the-function-and-their-arguments-from-a-js-file-javascript');
-//scrape('https://stackoverflow.com/questions/1789945/how-to-check-whether-a-string-contains-a-substring-in-javascript?rq=1');
-//scrape('https://stackoverflow.com/questions/5767325/how-can-i-remove-a-specific-item-from-an-array');
+fs.createReadStream('./stackDownload/QueryResults.csv').pipe(csv()).on('data', gotRow)
