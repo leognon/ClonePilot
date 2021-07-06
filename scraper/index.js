@@ -1,3 +1,4 @@
+const app = require('express')();
 const csv = require('csv-parser');
 const parser = require('node-html-parser');
 const fs = require('fs');
@@ -8,6 +9,14 @@ require('dotenv').config();
 
 const db = require('./db.js');
 
+const PORT = process.env.PORT || 3000;
+const server = app.listen(PORT);
+
+app.get('/getFunction/:name', async (req, res) => {
+    const fnName = req.params.name;
+    const fns = await db.getFunction(fnName);
+    res.json(fns);
+});
 
 const parsePost = row => {
     const postId = row.Id;
@@ -79,4 +88,4 @@ const getFunctionsFromCode = text => {
     return functions;
 }
 
-fs.createReadStream('./stackDownload/QueryResults10K.csv').pipe(csv()).on('data', parsePost).on('end', () => console.log('Done parsing'));
+//fs.createReadStream('./stackDownload/QueryResults586.csv').pipe(csv()).on('data', parsePost).on('end', () => console.log('Done parsing'));

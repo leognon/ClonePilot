@@ -1,4 +1,5 @@
 const mysql = require('mysql');
+const util = require('util');
 
 const connection = mysql.createConnection({
     host: process.env.DB_HOST,
@@ -7,13 +8,15 @@ const connection = mysql.createConnection({
     database: process.env.DB_NAME
 });
 
+const query = util.promisify(connection.query).bind(connection);
+
 connection.connect(err => {
     if (err) console.log('Error connecting to db', err);
     else console.log('Connected to db as id ' + connection.threadId);
 });
 
-const createFunctionsTableIfNotExists = () => {
-    const query = `CREATE TABLE IF NOT EXISTS functions (
+const createFunctionsTableIfNotExists = async () => {
+    const sql = `CREATE TABLE IF NOT EXISTS functions (
         id INT AUTO_INCREMENT,
         postId int NOT NULL,
         postScore int,
@@ -26,32 +29,39 @@ const createFunctionsTableIfNotExists = () => {
         fnType varchar(255),
         PRIMARY KEY (id)
     )`;
-    connection.query(query, (err, results) => {
-        if (err) throw err;
-    });
+    try {
+        await query(sql);
+    } catch (e) {
+        throw e;
+    }
 }
 
-const insertFunction = (fnName, fnData, postId, postScore) => {
-    fnName = mysql.escape(fnName);
-    fnData.params = mysql.escape(fnData.params);
-    fnData.body = mysql.escape(fnData.body.replace(/\r/g, '')); //Remove windows line breaks. It messes up sql
-    fnData.async = mysql.escape(fnData.async);
-    fnData.expression = mysql.escape(fnData.expression);
-    fnData.generator = mysql.escape(fnData.generator);
-    fnData.type = mysql.escape(fnData.type);
-    postId = mysql.escape(postId);
-    postScore = mysql.escape(postScore);
+const insertFunction = async (fnName, fnData, postId, postScore) => {
+    fnData.body = fnData.body.replace(/\r/g, ''); //Remove windows line breaks. It messes up sql
 
-    const query = `INSERT INTO functions
-        (postId, postScore, fnName, fnParams, fnBody, fnIsAsync, fnIsExpression, fnIsGenerator, fnType)
-        VALUES (${postId}, ${postScore}, ${fnName}, ${fnData.params}, ${fnData.body},
-        ${fnData.async}, ${fnData.expression}, ${fnData.generator}, ${fnData.type})`;
-    connection.query(query, (err, results) => {
-        if (err) throw err;
-    });
+    //TODO Only insert if that postId hasnt been added before
+    try {
+        query(`INSERT INTO functions (postId, postScore, fnName, fnParams, fnBody, fnIsAsync, fnIsExpression, fnIsGenerator, fnType)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [postId, postScore, fnName, fnData.params, fnData.body, fnData.async, fnData.expression, fnData.generator, fnData.type]);
+    } catch (e) {
+        console.log('Error inserting fn ' + fnName + ' from ' + postId, e);
+    }
+}
+
+const getFunction = async (fnName) => {
+    fnName = fnName.replace(/%/g, '');
+    if (fnName.length == 0) return [];
+    fnName += '%'; //Make the fnName a prefix
+    try {
+        let rows = await query(`SELECT * FROM functions WHERE fnName LIKE ?`, [fnName]);
+        return rows;
+    } catch (e) {
+        console.log('Erorr getting function ' + fnName, e);
+        return [];
+    }
 }
  
-//connection.end();
 createFunctionsTableIfNotExists();
 
-module.exports = { insertFunction };
+module.exports = { insertFunction, getFunction };
