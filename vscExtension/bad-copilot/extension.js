@@ -25,9 +25,7 @@ function activate(context) {
 			try {
 				const response = await axios.get(`http://127.0.0.1:3000/getFunction/${word}`);
 				const fns = response.data.sort((a, b) => b.postScore - a.postScore);
-				const bestFn = fns[0];
-				const params = bestFn.params;
-				const body = bestFn.body;
+				await openVirtualDoc(fns);
 			} catch (err) {
 				console.log('Error sending request', err);
 			}
@@ -45,30 +43,42 @@ function activate(context) {
 
 	const myScheme = 'badCopilot';
 	const myProvider = new class {
-		constructor() {
-			// emitter and its event
-			// onDidChangeEmitter = new vscode.EventEmitter<vscode.Uri>();
-			// onDidChange = this.onDidChangeEmitter.event;
-		}
-
 		provideTextDocumentContent(uri) {
-			// simply invoke cowsay, use uri-path as text
-			console.log('Provide with URI: ', uri);
-			return 'abc' + uri.path; //cowsay.say({ text: uri.path });
+			return uri.path;
 		}
-	};
+	}();
 	context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(myScheme, myProvider));
 
-	context.subscriptions.push(vscode.commands.registerCommand('bad-copilot.openVirtual', async () => {
-		const uri = vscode.Uri.parse(myScheme + ':' + 'asdf');
-		console.log('URI: ', uri);
+	const openVirtualDoc = async (fns) => {
+		let content = `/* Bad Copilot found ${fns.length} functions */\n\n`;
+		for (let i = 0; i < fns.length; i++) {
+			content += formatFunction(fns[i]);
+			if (i < fns.length - 1) content += '\n\n';
+		}
+		let uri = vscode.Uri.parse(myScheme + ':' + content);
 		const doc = await vscode.workspace.openTextDocument(uri); // calls back into the provider
 		await vscode.window.showTextDocument(doc, {
 			viewColumn: vscode.ViewColumn.Beside,
 			preview: true,
 			preserveFocus: true,
 		});
-	}));
+		vscode.languages.setTextDocumentLanguage(doc, "javascript");
+	}
+
+	const formatFunction = fn => {
+		const header = `//===== From https://stackoverflow.com/q/${fn.postId} =====\n`;
+		let formattedFn = '';
+		if (fn.fnIsAsync) formattedFn += 'async ';
+		formattedFn += 'function ';
+		formattedFn += fn.fnName;
+		formattedFn += '(' + fn.fnParams.replace(/,/g, ', ') + ') ';
+		if (fn.fnIsExpression) formattedFn += '{\n'; //Add curly brackets
+		formattedFn += fn.fnBody;
+		if (fn.fnIsExpression) formattedFn += '\n}';
+		//TODO Indentation is off
+
+		return header + formattedFn;
+	}
 }
 
 function deactivate() {}

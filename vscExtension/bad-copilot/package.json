@@ -10,17 +10,13 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:bad-copilot.insertCompletion",
-		"onCommand:bad-copilot.openVirtual"
+		"onCommand:bad-copilot.insertCompletion"
 	],
 	"main": "./extension.js",
 	"contributes": {
 		"commands": [{
 			"command": "bad-copilot.insertCompletion",
 			"title": "Insert Completion"
-		}, {
-			"command": "bad-copilot.openVirtual",
-			"title": "Open Virtual"
 		}]
 	},
 	"scripts": {
