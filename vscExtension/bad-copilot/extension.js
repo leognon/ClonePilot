@@ -2,6 +2,8 @@ const vscode = require('vscode');
 const axios = require('axios');
 
 function activate(context) {
+	let selectedEditor;
+	let selectedRange;
 	const disposable = vscode.commands.registerCommand('bad-copilot.insertCompletion', async () => {
 		// Get the active text editor
 		const editor = vscode.window.activeTextEditor;
@@ -19,6 +21,9 @@ function activate(context) {
 				selection = new vscode.Selection(cursorWordRange.start.line, cursorWordRange.start.character, cursorWordRange.end.line, cursorWordRange.end.character);
 			}
 
+			selectedEditor = editor;
+			selectedRange = selection;
+
 			// Get the word within the selection
 			const word = document.getText(selection);
 
@@ -29,13 +34,6 @@ function activate(context) {
 			} catch (err) {
 				console.log('Error sending request', err);
 			}
-
-			// vscode.window.showInformationMessage(word);
-
-			//const reversed = word.split('').reverse().join('');
-			// editor.edit(editBuilder => {
-			// editBuilder.replace(selection, reversed);
-			// });
 		}
 	});
 	context.subscriptions.push(disposable);
@@ -53,9 +51,10 @@ function activate(context) {
 		codelensProvider.clearPositions();
 		let content = `/* Bad Copilot found ${fns.length} functions */\n\n`;
 		for (let i = 0; i < fns.length; i++) {
-			const numLines = content.split('\n').length;
-			codelensProvider.addPosition(numLines);
-			content += formatFunction(fns[i]);
+			const lineNum = content.split('\n').length;
+			const formattedFn = formatFunction(fns[i]);
+			codelensProvider.addPosition(lineNum, fns[i]);
+			content += formattedFn.postHeader + formattedFn.keywords + formattedFn.header + formattedFn.body;
 			if (i < fns.length - 1) content += '\n\n';
 		}
 		let uri = vscode.Uri.parse(myScheme + ':' + content); //TODO Don't pass the content through the URI. If there is a ? it will be in the query part
@@ -69,22 +68,39 @@ function activate(context) {
 	}
 
 	const formatFunction = fn => {
-		const header = `//===== From https://stackoverflow.com/q/${fn.postId} =====\n`;
-		let formattedFn = '';
-		if (fn.fnIsAsync) formattedFn += 'async ';
-		formattedFn += 'function ';
-		formattedFn += fn.fnName;
-		formattedFn += '(' + fn.fnParams.replace(/,/g, ', ') + ') ';
-		if (fn.fnIsExpression) formattedFn += '{\n'; //Add curly brackets
-		formattedFn += fn.fnBody;
-		if (fn.fnIsExpression) formattedFn += '\n}';
+		const postHeader = `//===== From https://stackoverflow.com/q/${fn.postId} =====\n`;
+		const keywords = (fn.fnIsAsync ? 'async ' : '') + 'function ';
+		const header = fn.fnName + '(' + fn.fnParams.replace(/,/g, ', ') + ') ';
+		const body = (fn.fnIsExpression ? '{\n' : '') + fn.fnBody + (fn.fnIsExpression ? '\n}' : '');
 		//TODO Indentation is off
 
-		return header + formattedFn;
+		return {
+			postHeader,
+			keywords,
+			header,
+			body
+		};
 	}
 
-	const chooseOption = vscode.commands.registerCommand('bad-copilot.chooseOption', lineNum => {
-		console.log('Choose!', lineNum);
+	const chooseOption = vscode.commands.registerCommand('bad-copilot.chooseOption', fn => {
+		if (selectedEditor) {
+			try {
+				selectedEditor.edit(editBuilder => {
+					const formatted = formatFunction(fn);
+					editBuilder.replace(selectedRange, formatted.header + formatted.body);
+				});
+			} catch (e) {
+				//The editor isn't open
+			}
+		}
+		//Close copilot window. The hide function is deprecated, so it must be shown then closed as the active editor.
+		vscode.window.showTextDocument(myScheme, {
+				preview: true,
+				preserveFocus: false
+			})
+			.then(() => {
+				return vscode.commands.executeCommand('workbench.action.closeActiveEditor');
+			});
 	});
 	context.subscriptions.push(chooseOption);
 
@@ -92,13 +108,13 @@ function activate(context) {
 		constructor() {
 			this.codelenses = [];
 		}
-		addPosition(lineNum) {
+		addPosition(lineNum, fn) {
 			const range = new vscode.Range(lineNum, 0, lineNum, 0);
 			this.codelenses.push(new vscode.CodeLens(range, {
 				title: 'Choose option',
 				command: 'bad-copilot.chooseOption',
 				arguments: [
-					lineNum
+					fn
 				],
 				tooltip: 'Select'
 			}));
@@ -108,9 +124,10 @@ function activate(context) {
 		}
 
 		provideCodeLenses(document) {
-			console.log('Providing code lens');
 			return this.codelenses;
 		}
+
+		//TODO Use resolveCodeLens() instead of making the command in addPosition?
 	}();
 
 	vscode.languages.registerCodeLensProvider({
