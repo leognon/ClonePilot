@@ -15,6 +15,7 @@ const server = app.listen(PORT);
 app.get('/getFunction/:name', async (req, res) => {
     const fnName = req.params.name;
     const fns = await db.getFunction(fnName);
+    console.log('Got request for ' + fnName, fns);
     res.json(fns);
 });
 
