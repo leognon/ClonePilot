@@ -42,20 +42,23 @@ function activate(context) {
 
 
 	const myScheme = 'badCopilot';
-	const myProvider = new class {
+	const textDocumentProvider = new class {
 		provideTextDocumentContent(uri) {
 			return uri.path;
 		}
 	}();
-	context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(myScheme, myProvider));
+	context.subscriptions.push(vscode.workspace.registerTextDocumentContentProvider(myScheme, textDocumentProvider));
 
 	const openVirtualDoc = async (fns) => {
+		codelensProvider.clearPositions();
 		let content = `/* Bad Copilot found ${fns.length} functions */\n\n`;
 		for (let i = 0; i < fns.length; i++) {
+			const numLines = content.split('\n').length;
+			codelensProvider.addPosition(numLines);
 			content += formatFunction(fns[i]);
 			if (i < fns.length - 1) content += '\n\n';
 		}
-		let uri = vscode.Uri.parse(myScheme + ':' + content);
+		let uri = vscode.Uri.parse(myScheme + ':' + content); //TODO Don't pass the content through the URI. If there is a ? it will be in the query part
 		const doc = await vscode.workspace.openTextDocument(uri); // calls back into the provider
 		await vscode.window.showTextDocument(doc, {
 			viewColumn: vscode.ViewColumn.Beside,
@@ -79,6 +82,48 @@ function activate(context) {
 
 		return header + formattedFn;
 	}
+
+	const chooseOption = vscode.commands.registerCommand('bad-copilot.chooseOption', lineNum => {
+		console.log('Choose!', lineNum);
+	});
+	context.subscriptions.push(chooseOption);
+
+	const codelensProvider = new class {
+		constructor() {
+			this.codelenses = [];
+		}
+		addPosition(lineNum) {
+			const range = new vscode.Range(lineNum, 0, lineNum, 0);
+			this.codelenses.push(new vscode.CodeLens(range, {
+				title: 'Choose option',
+				command: 'bad-copilot.chooseOption',
+				arguments: [
+					lineNum
+				],
+				tooltip: 'Select'
+			}));
+		}
+		clearPositions() {
+			this.codelenses = [];
+		}
+
+		provideCodeLenses(document) {
+			console.log('Providing code lens');
+			return this.codelenses;
+		}
+	}();
+
+	vscode.languages.registerCodeLensProvider({
+		scheme: myScheme //Only adds codelens to my scheme
+	}, codelensProvider); //TODO Make disposable
+
+	// commands.registerCommand("codelens-sample.enableCodeLens", () => {
+	//     workspace.getConfiguration("codelens-sample").update("enableCodeLens", true, true);
+	// });
+
+	// commands.registerCommand("codelens-sample.disableCodeLens", () => {
+	//     workspace.getConfiguration("codelens-sample").update("enableCodeLens", false, true);
+	// });
 }
 
 function deactivate() {}
