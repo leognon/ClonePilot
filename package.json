@@ -4,7 +4,7 @@
   "description": "Scrape StackOverflow for javascript functions",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "node index.js"
   },
   "author": "Goel",
   "license": "ISC",
