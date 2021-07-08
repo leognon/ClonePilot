@@ -3,6 +3,10 @@ const axios = require('axios');
 const {
 	URLSearchParams
 } = require('url');
+const beautify = require('js-beautify');
+const beautifyOptions = {
+	indent_size: 4
+}
 
 function activate(context) {
 	let selectedEditor; //The editor to insert the completion into
@@ -85,7 +89,8 @@ function activate(context) {
 			const lineNum = content.split('\n').length; //The line to insert the codelens on
 			const formattedFn = formatFunction(fns[i]);
 			codelensProvider.addPosition(lineNum, fns[i]); //Add a codelens on that line
-			content += formattedFn.postHeader + formattedFn.keywords + formattedFn.header + formattedFn.body; //Display the entire function in the ClonePilot window
+			const fnStr = beautify(formattedFn.keywords + formattedFn.header + formattedFn.body, beautifyOptions);
+			content += formattedFn.postHeader + fnStr; //Display the entire function in the ClonePilot window
 			if (i < fns.length - 1) content += '\n\n';
 		}
 		return content;
@@ -93,17 +98,30 @@ function activate(context) {
 
 	const formatFunction = fn => {
 		const postHeader = `//===== From https://stackoverflow.com/q/${fn.postId} =====\n`;
-		const keywords = (fn.fnIsAsync ? 'async ' : '') + 'function ';
-		const header = fn.fnName + '(' + fn.fnParams.replace(/,/g, ', ') + ') ';
-		const body = (fn.fnIsExpression ? '{\n' : '') + fn.fnBody + (fn.fnIsExpression ? '\n}' : '');
-		//TODO Indentation is messed up
+		if (fn.fnType == 'FunctionDeclaration' || fn.fnType == 'MethodDefinition') {
+			const keywords = (fn.fnIsAsync ? 'async ' : '') + 'function '; //TODO Insert the async keyword if function is not already async
+			const header = fn.fnName + '(' + fn.fnParams.replace(/,/g, ', ') + ') ';
+			const body = fn.fnBody;
 
-		return {
-			postHeader,
-			keywords,
-			header,
-			body
-		};
+			return {
+				postHeader,
+				keywords,
+				header,
+				body
+			}
+		} else if (fn.fnType == 'ArrowFunctionExpression' || fn.fnType == 'FunctionExpression') {
+			// const name = async (params) => { body }
+			const keywords = 'const ';
+			const header = `${fn.fnName} = ${fn.fnIsAsync ? 'async ' : ''}(${fn.fnParams.replace(/,/g, ', ')}) => `;
+			const body = `${fn.fnBody}`;
+
+			return {
+				postHeader,
+				keywords,
+				header,
+				body
+			}
+		}
 	}
 
 	//When the user clicks on a codelens for a function
@@ -112,7 +130,7 @@ function activate(context) {
 		try {
 			selectedEditor.edit(editBuilder => {
 				const formatted = formatFunction(fn);
-				editBuilder.replace(selectedRange, formatted.header + formatted.body); //Insert the function into the text
+				editBuilder.replace(selectedRange, beautify(formatted.header + formatted.body, beautifyOptions)); //Insert the function into the text
 			});
 			//Close the ClonePilot window. The hide function is deprecated, so it must be shown then closed as the active editor.
 			vscode.window.showTextDocument(myScheme, {
