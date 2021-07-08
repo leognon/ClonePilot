@@ -1,5 +1,8 @@
 const vscode = require('vscode');
 const axios = require('axios');
+const {
+	URLSearchParams
+} = require('url');
 
 function activate(context) {
 	let selectedEditor; //The editor to insert the completion into
@@ -30,16 +33,19 @@ function activate(context) {
 		selectedRange = selection;
 
 		const word = document.getText(selection); //The word in the selection
-		await openClonePilot(word); //TODO Make a loading window pop up
+		await openClonePilot(word);
 
 	}));
 
 	const myScheme = 'clonePilot';
 	const textDocumentProvider = new class { //Provides a text document for the window
 		async provideTextDocumentContent(uri) {
-			const queryParams = uri.query.split('=');
-			if (queryParams.length < 2) return 'Something went wrong. Make sure a word is selected.';
-			const word = queryParams[1]; //Gets asdf from 'word=asdf'
+			const params = new URLSearchParams(uri.query);
+			const word = params.get('word');
+			if (params.get('loading') === 'true') {
+				return `/* Clone Pilot is searching for functions for ${word} */\n`;
+			}
+
 			try {
 				const response = await axios.get(`http://127.0.0.1:3000/getFunction/${word}`); //Get the functions for that word
 				const fns = response.data.sort((a, b) => b.postScore - a.postScore); //Show the highset score first
@@ -56,14 +62,20 @@ function activate(context) {
 	//Open the ClonePilot window to display the functions
 	const openClonePilot = async (word) => {
 		//A uri to send to the document
-		let uri = vscode.Uri.parse(`${myScheme}:Clone Pilot?word=${word}`, true); //TODO Don't pass the content through the URI. If there is a ? it will be in the query part
-		const doc = await vscode.workspace.openTextDocument(uri); // calls back into the provider
+		let loadingUri = vscode.Uri.parse(`${myScheme}:Clone Pilot?word=${word}&loading=true`, true);
+		await showUri(loadingUri); //Open a loading window
+		let uri = vscode.Uri.parse(`${myScheme}:Clone Pilot?word=${word}&loading=false`, true);
+		await showUri(uri); //Show the actual content, once got from the server
+	}
+
+	const showUri = async (uri) => {
+		const doc = await vscode.workspace.openTextDocument(uri); //Calls back into the provider
 		await vscode.window.showTextDocument(doc, {
 			viewColumn: vscode.ViewColumn.Beside,
 			preview: true, //Don't replace the current window
 			preserveFocus: true,
 		});
-		vscode.languages.setTextDocumentLanguage(doc, "javascript"); //Enables syntax highlighting
+		vscode.languages.setTextDocumentLanguage(doc, 'javascript'); //Enables syntax highlighting
 	}
 
 	const getClonePilotText = (fns, word) => {
