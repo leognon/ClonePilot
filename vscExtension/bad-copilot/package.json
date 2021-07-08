@@ -10,13 +10,13 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:clone-pilot.insertCompletion"
+		"onCommand:clone-pilot.openClonePilot"
 	],
 	"main": "./extension.js",
 	"contributes": {
 		"commands": [{
-			"command": "clone-pilot.insertCompletion",
-			"title": "Insert Completion"
+			"command": "clone-pilot.openClonePilot",
+			"title": "Open Clone Pilot"
 		}]
 	},
 	"scripts": {
