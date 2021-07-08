@@ -4,7 +4,8 @@ const axios = require('axios');
 function activate(context) {
 	let selectedEditor;
 	let selectedRange;
-	const disposable = vscode.commands.registerCommand('bad-copilot.insertCompletion', async () => {
+
+	context.subscriptions.push(vscode.commands.registerCommand('clone-pilot.insertCompletion', async () => {
 		// Get the active text editor
 		const editor = vscode.window.activeTextEditor;
 		if (editor) {
@@ -35,11 +36,10 @@ function activate(context) {
 				console.log('Error sending request', err);
 			}
 		}
-	});
-	context.subscriptions.push(disposable);
+	}));
 
 
-	const myScheme = 'badCopilot';
+	const myScheme = 'clonePilot';
 	const textDocumentProvider = new class {
 		provideTextDocumentContent(uri) {
 			return uri.path;
@@ -49,7 +49,7 @@ function activate(context) {
 
 	const openVirtualDoc = async (fns) => {
 		codelensProvider.clearPositions();
-		let content = `/* Bad Copilot found ${fns.length} functions */\n\n`;
+		let content = `/* Clone Pilot found ${fns.length} functions */\n\n`;
 		for (let i = 0; i < fns.length; i++) {
 			const lineNum = content.split('\n').length;
 			const formattedFn = formatFunction(fns[i]);
@@ -82,7 +82,7 @@ function activate(context) {
 		};
 	}
 
-	const chooseOption = vscode.commands.registerCommand('bad-copilot.chooseOption', fn => {
+	const chooseOption = vscode.commands.registerCommand('clone-pilot.chooseOption', fn => {
 		if (selectedEditor) {
 			try {
 				selectedEditor.edit(editBuilder => {
@@ -93,7 +93,7 @@ function activate(context) {
 				//The editor isn't open
 			}
 		}
-		//Close copilot window. The hide function is deprecated, so it must be shown then closed as the active editor.
+		//Close clone pilot window. The hide function is deprecated, so it must be shown then closed as the active editor.
 		vscode.window.showTextDocument(myScheme, {
 				preview: true,
 				preserveFocus: false
@@ -112,7 +112,7 @@ function activate(context) {
 			const range = new vscode.Range(lineNum, 0, lineNum, 0);
 			this.codelenses.push(new vscode.CodeLens(range, {
 				title: 'Choose option',
-				command: 'bad-copilot.chooseOption',
+				command: 'clone-pilot.chooseOption',
 				arguments: [
 					fn
 				],
@@ -133,14 +133,6 @@ function activate(context) {
 	vscode.languages.registerCodeLensProvider({
 		scheme: myScheme //Only adds codelens to my scheme
 	}, codelensProvider); //TODO Make disposable
-
-	// commands.registerCommand("codelens-sample.enableCodeLens", () => {
-	//     workspace.getConfiguration("codelens-sample").update("enableCodeLens", true, true);
-	// });
-
-	// commands.registerCommand("codelens-sample.disableCodeLens", () => {
-	//     workspace.getConfiguration("codelens-sample").update("enableCodeLens", false, true);
-	// });
 }
 
 function deactivate() {}

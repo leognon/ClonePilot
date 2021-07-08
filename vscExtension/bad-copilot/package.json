@@ -1,7 +1,7 @@
 {
-	"name": "bad-copilot",
-	"displayName": "Bad Copilot",
-	"description": "A bad version of Github Copilot",
+	"name": "clone-pilot",
+	"displayName": "Clone Pilot",
+	"description": "Clone Pilot - A bad version of Github Copilot",
 	"version": "0.0.1",
 	"engines": {
 		"vscode": "^1.57.0"
@@ -10,12 +10,12 @@
 		"Other"
 	],
 	"activationEvents": [
-		"onCommand:bad-copilot.insertCompletion"
+		"onCommand:clone-pilot.insertCompletion"
 	],
 	"main": "./extension.js",
 	"contributes": {
 		"commands": [{
-			"command": "bad-copilot.insertCompletion",
+			"command": "clone-pilot.insertCompletion",
 			"title": "Insert Completion"
 		}]
 	},
