@@ -1,11 +1,11 @@
-const mysql = require('mysql');
+const mysql = require('mysql2');
 const util = require('util');
 
 const connection = mysql.createConnection({
     host: process.env.DB_HOST,
     user: process.env.DB_USER,
     password: process.env.DB_PASS,
-    database: process.env.DB_NAME
+    database: process.env.DB_NAME,
 });
 
 const query = util.promisify(connection.query).bind(connection);
@@ -36,14 +36,15 @@ const createFunctionsTableIfNotExists = async () => {
     }
 }
 
-const insertFunction = async (fnName, fnData, postId, postScore) => {
+const insertFunction = async (fnName, fnData, postId, postScore, callback) => {
     fnData.body = fnData.body.replace(/\r/g, ''); //Remove windows line breaks. It messes up sql
 
     //TODO Only insert if that postId hasnt been added before
     try {
-        query(`INSERT INTO functions (postId, postScore, fnName, fnParams, fnBody, fnIsAsync, fnIsExpression, fnIsGenerator, fnType)
+        await query(`INSERT INTO functions (postId, postScore, fnName, fnParams, fnBody, fnIsAsync, fnIsExpression, fnIsGenerator, fnType)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [postId, postScore, fnName, fnData.params, fnData.body, fnData.async, fnData.expression, fnData.generator, fnData.type]);
+        callback();
     } catch (e) {
         console.log('Error inserting fn ' + fnName + ' from ' + postId, e);
     }
@@ -61,7 +62,5 @@ const getFunction = async (fnName) => {
         return [];
     }
 }
- 
-createFunctionsTableIfNotExists();
 
-module.exports = { insertFunction, getFunction };
+module.exports = { createFunctionsTableIfNotExists, insertFunction, getFunction };
