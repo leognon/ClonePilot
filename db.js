@@ -44,10 +44,10 @@ const insertFunction = async (fnName, fnData, postId, postScore, callback) => {
         await query(`INSERT INTO functions (postId, postScore, fnName, fnParams, fnBody, fnIsAsync, fnIsExpression, fnIsGenerator, fnType)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [postId, postScore, fnName, fnData.params, fnData.body, fnData.async, fnData.expression, fnData.generator, fnData.type]);
-        callback();
     } catch (e) {
         console.log('Error inserting fn ' + fnName + ' from ' + postId, e);
     }
+    callback();
 }
 
 const getFunction = async (fnName) => {
@@ -55,7 +55,12 @@ const getFunction = async (fnName) => {
     if (fnName.length == 0) return [];
     fnName += '%'; //Make the fnName a prefix
     try {
-        let rows = await query(`SELECT * FROM functions WHERE fnName LIKE ?`, [fnName]);
+        let rows = await query(`SELECT * FROM functions WHERE fnName LIKE ? AND fnName != 'constructor'`, [fnName]);
+        rows = rows.sort((a, b) => {
+            if (b.fnName.length != a.fnName.length) return a.fnName.length - b.fnName.length; //Show the closest matches first
+            return a.fnBody.length - b.fnBody.length; //Then show the shortest functions. The shorter the function, usually the better it is
+        });
+        if (rows.length > 15) rows = rows.slice(0, 15);
         return rows;
     } catch (e) {
         console.log('Erorr getting function ' + fnName, e);
