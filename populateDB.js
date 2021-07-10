@@ -12,8 +12,18 @@ let total = 0;
 let numInserted = 0;
 let startTime = Date.now();
 
+setInterval(() => {
+    console.log('At ' + (Date.now()-startTime) + ' inserted ' + numInserted +  'out of ' + total);
+}, 10000);
+
+//If multiple CSVs are used separately, duplicate posts may be inserted. This ensures no duplicates are inserted. It will still work if there are multiple functions in a post
+let alreadyInsertedIds = {};
+
 const parsePost = row => {
     const postId = row.Id;
+    if (alreadyInsertedIds.hasOwnProperty(postId)) {
+        return;
+    }
     const postScore = row.Score;
     const body = row.Body;
     const fns = getFunctionsFromPost(body);
@@ -76,7 +86,8 @@ const getFunctionsFromCode = text => {
 
     acornWalk.simple(parsed, {
         FunctionDeclaration(node) {
-            addFunction(node.id.name, node.params, node.body, node.async, node.generator, node.expression, 'FunctionDeclaration');
+            if (node.id)
+                addFunction(node.id.name, node.params, node.body, node.async, node.generator, node.expression, 'FunctionDeclaration');
         },
         VariableDeclarator(node) {
             if (node.init && (node.init.type == 'ArrowFunctionExpression' || node.init.type == 'FunctionExpression')) {
@@ -91,10 +102,19 @@ const getFunctionsFromCode = text => {
     return functions;
 }
 
-const populate = fileName => {
+const populate = async (fileName) => {
+    await db.createFunctionsTableIfNotExists();
+    alreadyInsertedIds = await db.getUniqueIds();
     fs.createReadStream(fileName).pipe(csv()).on('data', parsePost).on('end', () => console.log('Done parsing'));
 }
  
-db.createFunctionsTableIfNotExists();
+/* id 0 - 4212 is from QueryResults50K
+ * id 4213 - 5411 is from QueryResults29KViewCountOver50K
+ * id 5411 - 5836 is from QueryResults42KviewsOver25K
+ * id 5835 - 6110 is  from 50K-1
+ * id 6111 - 9318 from 50K-2
+ * id 9319 - 14066 from 50K-3
+ * Essentially none from 50K-4
+ */
 
-populate('./stackDownload/QueryResults10K.csv');
+populate('./stackDownload/allAnswers/50K-4.csv');

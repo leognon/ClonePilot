@@ -68,4 +68,18 @@ const getFunction = async (fnName) => {
     }
 }
 
-module.exports = { createFunctionsTableIfNotExists, insertFunction, getFunction };
+const getUniqueIds = async () => {
+    try {
+        let ids = await query(`SELECT DISTINCT postId FROM functions`);
+        let obj = {};
+        for (let post of ids) {
+            obj[post.postId] = true;
+        }
+        return obj;
+    } catch (e) {
+        console.log('Error getting unique ids', e);
+        return {};
+    }
+}
+
+module.exports = { createFunctionsTableIfNotExists, insertFunction, getFunction, getUniqueIds };
