@@ -91,7 +91,7 @@ const getUniqueIds = async () => {
 let con = createConnection();
 connection = con.connection;
 query = con.query;
-setTimeout(() => {
+setInterval(() => {
     connection.destroy();
     let con = createConnection();
     connection = con.connection;
