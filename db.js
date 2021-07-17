@@ -96,7 +96,7 @@ setTimeout(() => {
     let con = createConnection();
     connection = con.connection;
     query = con.query;
-}, 1800000); //Make a new connection every 30 minutes
+}, 1000*60*10); //Make a new connection every 10 minutes
 
 module.exports = {
     createFunctionsTableIfNotExists,
