@@ -7,15 +7,20 @@ const createConnection = () => {
     let connection = mysql.createConnection({
         host: process.env.DB_HOST,
         user: process.env.DB_USER,
+        port: 3306,
         password: process.env.DB_PASS,
         database: process.env.DB_NAME,
     });
 
-    query = util.promisify(connection.query).bind(connection);
+    let query = util.promisify(connection.query).bind(connection);
 
     connection.connect(err => {
-        if (err) console.log('Error connecting to db', err);
+        if (err) {
+            console.log('Error connecting to db', err);
+            process.exit(0); //This will end up restarting heroku
+        }
         else console.log('Connected to db at ' + Date.now() + ' as id ' + connection.threadId);
+
     });
 
     return { connection, query };
@@ -96,7 +101,7 @@ setInterval(() => {
     let con = createConnection();
     connection = con.connection;
     query = con.query;
-}, 1000*60*10); //Make a new connection every 10 minutes
+}, 1000*60*5); //Make a new connection every 5 minutes
 
 module.exports = {
     createFunctionsTableIfNotExists,
