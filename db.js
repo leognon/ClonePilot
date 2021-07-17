@@ -1,19 +1,25 @@
 const mysql = require('mysql2');
 const util = require('util');
 
-const connection = mysql.createConnection({
-    host: process.env.DB_HOST,
-    user: process.env.DB_USER,
-    password: process.env.DB_PASS,
-    database: process.env.DB_NAME,
-});
+let connection, query;
 
-const query = util.promisify(connection.query).bind(connection);
+const createConnection = () => {
+    let connection = mysql.createConnection({
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        password: process.env.DB_PASS,
+        database: process.env.DB_NAME,
+    });
 
-connection.connect(err => {
-    if (err) console.log('Error connecting to db', err);
-    else console.log('Connected to db as id ' + connection.threadId);
-});
+    query = util.promisify(connection.query).bind(connection);
+
+    connection.connect(err => {
+        if (err) console.log('Error connecting to db', err);
+        else console.log('Connected to db at ' + Date.now() + ' as id ' + connection.threadId);
+    });
+
+    return { connection, query };
+}
 
 const createFunctionsTableIfNotExists = async () => {
     const sql = `CREATE TABLE IF NOT EXISTS functions (
@@ -43,7 +49,7 @@ const insertFunction = async (fnName, fnData, postId, postScore, callback) => {
     try {
         await query(`INSERT INTO functions (postId, postScore, fnName, fnParams, fnBody, fnIsAsync, fnIsExpression, fnIsGenerator, fnType)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [postId, postScore, fnName, fnData.params, fnData.body, fnData.async, fnData.expression, fnData.generator, fnData.type]);
+            [postId, postScore, fnName, fnData.params, fnData.body, fnData.async, fnData.expression, fnData.generator, fnData.type]);
     } catch (e) {
         console.log('Error inserting fn ' + fnName + ' from ' + postId, e);
     }
@@ -82,4 +88,19 @@ const getUniqueIds = async () => {
     }
 }
 
-module.exports = { createFunctionsTableIfNotExists, insertFunction, getFunction, getUniqueIds };
+let con = createConnection();
+connection = con.connection;
+query = con.query;
+setTimeout(() => {
+    connection.destroy();
+    let con = createConnection();
+    connection = con.connection;
+    query = con.query;
+}, 1800000); //Make a new connection every 30 minutes
+
+module.exports = {
+    createFunctionsTableIfNotExists,
+    insertFunction,
+    getFunction,
+    getUniqueIds
+};
