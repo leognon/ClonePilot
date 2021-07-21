@@ -19,8 +19,6 @@ const createConnection = () => {
             console.log('Error connecting to db', err);
             process.exit(0); //This will end up restarting heroku
         }
-        else console.log('Connected to db at ' + Date.now() + ' as id ' + connection.threadId);
-
     });
 
     return { connection, query };

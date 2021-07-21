@@ -9,8 +9,8 @@ const server = app.listen(PORT);
 
 app.get('/getFunction/:name', async (req, res) => {
     const fnName = req.params.name;
-    console.log(Date.now() + ' got request for ' + fnName);
     const fns = await db.getFunction(fnName);
+    console.log(`${Date.now()}: ${fns.length} for ${fnName}`);
     res.json(fns);
 });
 
